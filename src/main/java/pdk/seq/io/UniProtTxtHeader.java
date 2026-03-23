@@ -41,10 +41,12 @@ public class UniProtTxtHeader extends UniProtFastaHeader {
      */
     private String flags_;
 
-    private ArrayList<String> geneNames;
-    private String organelle;
-    private List<String> organismClassification;
-    private List<String> organismHostTaxIds;
+    private ArrayList<GeneName> geneNames_;
+
+    private String organelle_;
+
+    private ArrayList<String> organismClassification_;
+    private ArrayList<OrganismHost> organismHosts_;
     private Set<String> keywords;
 
     /**
@@ -208,13 +210,23 @@ public class UniProtTxtHeader extends UniProtFastaHeader {
         this.contains_ = contains;
     }
 
+    /**
+     * Return gene names of this sequence
+     *
+     * @return {@link GeneName} list
+     */
     @Nullable
-    public ArrayList<String> getGeneNames() {
-        return geneNames;
+    public ArrayList<GeneName> getGeneNames() {
+        return geneNames_;
     }
 
-    public void setGeneNames(ArrayList<String> geneNameList) {
-        this.geneNames = geneNameList;
+    /**
+     * Set {@link GeneName} for this entry
+     *
+     * @param geneNameList {@link GeneName}s
+     */
+    public void setGeneNames(ArrayList<GeneName> geneNameList) {
+        this.geneNames_ = geneNameList;
     }
 
     /**
@@ -223,34 +235,34 @@ public class UniProtTxtHeader extends UniProtFastaHeader {
      */
     @Nullable
     public String getOrganelle() {
-        return organelle;
+        return organelle_;
     }
 
     public void setOrganelle(String organelle) {
-        this.organelle = organelle;
+        this.organelle_ = organelle;
     }
 
     /**
      * @return The classification is listed top-down as nodes in a taxonomic tree in which
      * the most general grouping is given first.
      */
-    public List<String> getOrganismClassification() {
-        return organismClassification;
+    public ArrayList<String> getOrganismClassification() {
+        return organismClassification_;
     }
 
-    public void setOrganismClassification(List<String> organismClassification) {
-        this.organismClassification = organismClassification;
+    public void setOrganismClassification(ArrayList<String> organismClassification) {
+        this.organismClassification_ = organismClassification;
     }
 
     /**
      * @return the host organism(s) NCBI TaxId that are susceptible to be infected by a virus.
      */
-    public List<String> getOrganismHostTaxIDs() {
-        return organismHostTaxIds;
+    public List<OrganismHost> getOrganismHosts() {
+        return organismHosts_;
     }
 
-    public void setOrganismHostTaxIDs(List<String> organismHostTaxIds) {
-        this.organismHostTaxIds = organismHostTaxIds;
+    public void setOrganismHostTaxIDs(ArrayList<OrganismHost> organismHostTaxIds) {
+        this.organismHosts_ = organismHostTaxIds;
     }
 
     public Set<String> getKeywords() {

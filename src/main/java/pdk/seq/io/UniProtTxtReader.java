@@ -1,5 +1,6 @@
 package pdk.seq.io;
 
+import com.google.common.base.Splitter;
 import com.google.common.collect.ArrayListMultimap;
 import pdk.seq.DatabaseType;
 import pdk.seq.Seq;
@@ -18,7 +19,7 @@ import java.util.*;
  * https://web.expasy.org/docs/userman.html
  *
  * @author Jiawei Mao
- * @version 1.0.0
+ * @version 1.0.0⭐
  * @since 17 Oct 2024, 1:51 PM
  */
 public class UniProtTxtReader implements IterateReader<Seq>, AutoCloseable {
@@ -95,61 +96,18 @@ public class UniProtTxtReader implements IterateReader<Seq>, AutoCloseable {
         readAC(header, lineMap_.get("AC")); // once or more
         readDT(header, lineMap_.get("DT")); // three
         readDE(header, lineMap_.get("DE")); // once or more
-
-        lines = lineMap_.get("GN"); // optional
-        readGN(header, lines);
-
-        lines = lineMap_.get("OS");// Once or more
-        readOS(header, lines);
-//        index += lines.size();
-
-        lines = lineMap_.get("OG"); // Optional
-        readOG(header, lines);
-//        index += lines.size();
-
-        lines = lineMap_.get("OC");// once or more
-        readOC(header, lines);
-//        index += lines.size();
-
-        lines = lineMap_.get("OX"); // once
-        readOX(header, lines);
-//        index += lines.size();
-
-        lines = lineMap_.get("OH"); // optional
-        readOH(header, lines);
-//        index += lines.size();
-
-        // skip all references
-//        lines = new ArrayList<>(); // once or more reference
-//        for (int i = index; i < lineList.size(); i++) {
-//            String s = lineList.get(i);
-//            if (s.startsWith("RN") || s.startsWith("RP") || s.startsWith("RC")
-//                    || s.startsWith("RX") || s.startsWith("RG") || s.startsWith("RA")
-//                    || s.startsWith("RT") || s.startsWith("RL")) {
-//                lines.add(s);
-//            } else {
-//                break;
-//            }
-//        }
-
-        lines = lineMap_.get("CC"); // optional
-        if (!lines.isEmpty()) {
-            // readCC
-        }
-
-        lines = lineMap_.get("DR"); // optional
-        if (!lines.isEmpty()) {
-            // readDR
-        }
-
-        lines = lineMap_.get("PE"); // once
-        readPE(header, lines);
-
-        lines = lineMap_.get("KW");// optional
-        readKW(header, lines);
-
-        lines = lineMap_.get("FT");// once or more in Swiss-Prot, optional in TrEMBL
-        readFT(header, lines);
+        readGN(header, lineMap_.get("GN")); // optional
+        readOS(header, lineMap_.get("OS")); // Once or more
+        readOG(header, lineMap_.get("OG")); // Optional
+        readOC(header, lineMap_.get("OC")); // once or more
+        readOX(header, lineMap_.get("OX")); // once
+        readOH(header, lineMap_.get("OH")); // optional
+        // skip references:RN, RP, RC, RX, RG, RA, RT, RL
+        // skip CC lines
+        // skip DR lines
+        readPE(header, lineMap_.get("PE")); // once
+        readKW(header, lineMap_.get("KW")); // optional
+        readFT(header, lineMap_.get("FT")); // once or more in Swiss-Prot, optional in TrEMBL
 
         lines = lineMap_.get("SQ");
         assert lines.size() == 1;
@@ -250,83 +208,85 @@ public class UniProtTxtReader implements IterateReader<Seq>, AutoCloseable {
     private static final String TAG_DE_TAB2 = "  ";
 
     /**
-     * The DE (DEscription) lines contain general descriptive information about the sequence stored.
+     * The DE (DEscription) lines contain general descriptive information about the sequence stored.⭐
      */
-    private void readDE(UniProtTxtHeader header, List<String> lines) {
-        List<String> blockLines = new ArrayList<>(lines.size());
+    protected static void readDE(UniProtTxtHeader header, List<String> lines) {
         int idx = 0;
+        int startIdx = 0;
         for (; idx < lines.size(); idx++) {
             String line = lines.get(idx);
-            if (line.startsWith(TAG_DE_Flags)) { // 0-1
-                String flag = line.substring(TAG_DE_Flags.length(), line.length() - 1);
-                header.setFlags(flag);
-                idx++;
-                break;
-            } else if (line.startsWith(TAG_DE_Includes) || line.startsWith(TAG_DE_Contains)) {
+            if (line.startsWith(TAG_DE_Includes) || line.startsWith(TAG_DE_Contains) || line.startsWith(TAG_DE_Flags)) {
+                idx--;
                 break;
             }
-            blockLines.add(line);
         }
-        DEProteinName name = readDEProteinName(blockLines);
+        int endIdx = (idx == lines.size()) ? idx - 1 : idx;
+
+//        System.out.println(startIdx + " " + endIdx);
+        DEProteinName name = readDEProteinName(lines, startIdx, endIdx);
         header.setDEProteinName(name);
 
-        ArrayList<DEProteinName> contains = new ArrayList<>();
-        ArrayList<DEProteinName> includes = new ArrayList<>();
-        for (; idx < lines.size(); idx++) {
-            String line = lines.get(idx);
-            if (line.startsWith(TAG_DE_Contains)) {
-                blockLines.clear();
-                System.out.println(header.getAccession());
-                for (int i = idx + 1; i < lines.size(); i++) {
-                    line = lines.get(i);
-                    if (line.startsWith(TAG_DE_TAB2)) {
-                        System.out.println(line);
-                        blockLines.add(line.substring(2));
+        if (endIdx < (lines.size() - 1)) {
+            idx = endIdx + 1;
+            ArrayList<DEProteinName> contains = new ArrayList<>();
+            ArrayList<DEProteinName> includes = new ArrayList<>();
+            for (; idx < lines.size(); idx++) {
+                String line = lines.get(idx);
+                if (line.startsWith(TAG_DE_Contains)) {
+                    startIdx = idx + 1;
+                    for (int i = startIdx; i < lines.size(); i++) {
+                        line = lines.get(i);
+                        if (!line.startsWith(TAG_DE_TAB2)) {
+                            break;
+                        }
                         idx = i;
-                    } else {
-                        DEProteinName proteinName = readDEProteinName(blockLines);
-                        contains.add(proteinName);
-                        idx = i - 1;
-                        break;
                     }
-                }
-            } else if (line.startsWith(TAG_DE_Includes)) {
-                blockLines.clear();
-                for (int i = idx + 1; i < lines.size(); i++) {
-                    line = lines.get(i);
-                    if (line.startsWith(TAG_DE_TAB2)) {
-                        blockLines.add(line.substring(2));
+                    endIdx = idx;
+                    DEProteinName proteinName = readDEProteinNameAlt(lines, startIdx, endIdx);
+                    contains.add(proteinName);
+                } else if (line.startsWith(TAG_DE_Includes)) {
+                    startIdx = idx + 1;
+                    for (int i = startIdx; i < lines.size(); i++) {
+                        line = lines.get(i);
+                        if (!line.startsWith(TAG_DE_TAB2)) {
+                            break;
+                        }
                         idx = i;
-                    } else {
-                        DEProteinName proteinName = readDEProteinName(blockLines);
-                        includes.add(proteinName);
-                        idx = i - 1;
-                        break;
                     }
+                    endIdx = idx;
+
+                    DEProteinName proteinName = readDEProteinNameAlt(lines, startIdx, endIdx);
+                    includes.add(proteinName);
+                } else if (line.startsWith(TAG_DE_Flags)) {
+                    String flag = line.substring(TAG_DE_Flags.length(), line.length() - 1);
+                    header.setFlags(flag);
+                } else {
+                    throw new IllegalArgumentException("Invalid line: " + line);
                 }
-            } else {
-                throw new IllegalArgumentException("Invalid line: " + line);
             }
-        }
-        if (!contains.isEmpty()) {
-            contains.trimToSize();
-            header.setContains(contains);
-        }
-        if (!includes.isEmpty()) {
-            includes.trimToSize();
-            header.setIncludes(includes);
+            if (!contains.isEmpty()) {
+                contains.trimToSize();
+                header.setContains(contains);
+            }
+            if (!includes.isEmpty()) {
+                includes.trimToSize();
+                header.setIncludes(includes);
+            }
         }
     }
 
-    private DEProteinName readDEProteinName(List<String> lines) {
-//        System.out.println(lines.size());
-//        for (String line : lines) {
-//            System.out.println(line);
-//        }
-
+    /**
+     * Read lines in a given range
+     *
+     * @param lines    lines of DE lines except 'includes' and 'contains' sections
+     * @param startIdx start index, inclusive
+     * @param endIdx   end index, inclusive
+     * @return {@link DEProteinName} instance
+     */
+    protected static DEProteinName readDEProteinName(List<String> lines, int startIdx, int endIdx) {
         DEProteinName proteinName = new DEProteinName();
-        for (int i = 0; i < lines.size(); i++) {
-            String line = lines.get(i);
+        for (int idx1 = startIdx; idx1 <= endIdx; idx1++) {
+            String line = lines.get(idx1);
             if (line.startsWith(TAG_DE_Allergen)) {
                 String allergen = line.substring(TAG_DE_Allergen.length(), line.length() - 1);
                 proteinName.setAllergen(allergen);
@@ -345,9 +305,9 @@ public class UniProtTxtReader implements IterateReader<Seq>, AutoCloseable {
                 assert fullTagIdx >= 0;
                 String fullName = line.substring(fullTagIdx + TAG_DE_Full.length(), line.length() - 1);
                 recName.setFullName(fullName);
-                if (i < lines.size() - 1) {
-                    for (int idx = i + 1; idx < lines.size(); idx++) {
-                        line = lines.get(idx);
+                if (idx1 < endIdx) {
+                    for (int idx2 = idx1 + 1; idx2 <= endIdx; idx2++) {
+                        line = lines.get(idx2);
                         if (line.startsWith(TAG_DE_TAB)) {
                             int shortTagIdx = line.indexOf(TAG_DE_Short);
                             if (shortTagIdx >= 0) {
@@ -362,9 +322,9 @@ public class UniProtTxtReader implements IterateReader<Seq>, AutoCloseable {
                                     throw new IllegalStateException("Unknown DE line under RecName: " + line);
                                 }
                             }
-                            i = idx;
+                            idx1 = idx2;
                         } else {
-                            i = idx - 1;
+                            idx1 = idx2 - 1;
                             break;
                         }
                     }
@@ -379,9 +339,9 @@ public class UniProtTxtReader implements IterateReader<Seq>, AutoCloseable {
                 }
                 String fullName = line.substring(fullTagIdx + TAG_DE_Full.length(), line.length() - 1);
                 altName.setFullName(fullName);
-                if (i < lines.size() - 1) {
-                    for (int idx = i + 1; idx < lines.size(); idx++) {
-                        line = lines.get(idx);
+                if (idx1 < endIdx) {
+                    for (int idx2 = idx1 + 1; idx2 < lines.size(); idx2++) {
+                        line = lines.get(idx2);
                         if (line.startsWith(TAG_DE_TAB)) {
                             int shortTagIdx = line.indexOf(TAG_DE_Short);
                             if (shortTagIdx >= 0) {
@@ -396,9 +356,9 @@ public class UniProtTxtReader implements IterateReader<Seq>, AutoCloseable {
                                     throw new IllegalStateException("Unknown DE line under AltName: " + line);
                                 }
                             }
-                            i = idx;
+                            idx1 = idx2;
                         } else {
-                            i = idx - 1;
+                            idx1 = idx2 - 1;
                             break;
                         }
                     }
@@ -413,9 +373,9 @@ public class UniProtTxtReader implements IterateReader<Seq>, AutoCloseable {
                 }
                 String fullName = line.substring(fullTagIdx + TAG_DE_Full.length(), line.length() - 1);
                 subName.setFullName(fullName);
-                if (i < lines.size() - 1) {
-                    for (int idx = i + 1; idx < lines.size(); idx++) {
-                        line = lines.get(idx);
+                if (idx1 < endIdx) {
+                    for (int idx2 = idx1 + 1; idx2 < lines.size(); idx2++) {
+                        line = lines.get(idx2);
                         if (line.startsWith(TAG_DE_TAB)) {
                             int ecTagIdx = line.indexOf(TAG_DE_EC);
                             if (ecTagIdx >= 0) {
@@ -424,9 +384,9 @@ public class UniProtTxtReader implements IterateReader<Seq>, AutoCloseable {
                             } else {
                                 throw new IllegalStateException("Unknown DE line under AltName: " + line);
                             }
-                            i = idx;
+                            idx1 = idx2;
                         } else {
-                            i = idx - 1;
+                            idx1 = idx2 - 1;
                             break;
                         }
                     }
@@ -438,114 +398,217 @@ public class UniProtTxtReader implements IterateReader<Seq>, AutoCloseable {
             }
         }
 
+        proteinName.trimToSize();
         return proteinName;
     }
 
-    private void readGN(UniProtTxtHeader header, List<String> lines) {
+    /**
+     * Read lines in a given range
+     *
+     * @param lines    lines of 'includes', 'contains' sections
+     * @param startIdx start index, inclusive
+     * @param endIdx   end index, inclusive
+     * @return {@link DEProteinName} instance
+     */
+    protected static DEProteinName readDEProteinNameAlt(List<String> lines, int startIdx, int endIdx) {
+        DEProteinName proteinName = new DEProteinName();
+        for (int idx1 = startIdx; idx1 <= endIdx; idx1++) {
+            String line = lines.get(idx1).substring(2);
+            if (line.startsWith(TAG_DE_Allergen)) {
+                String allergen = line.substring(TAG_DE_Allergen.length(), line.length() - 1);
+                proteinName.setAllergen(allergen);
+            } else if (line.startsWith(TAG_DE_Biotech)) {
+                String biotech = line.substring(TAG_DE_Biotech.length(), line.length() - 1);
+                proteinName.setBiotech(biotech);
+            } else if (line.startsWith(TAG_DE_CD_antigen)) {
+                String cdAntigen = line.substring(TAG_DE_CD_antigen.length(), line.length() - 1);
+                proteinName.addCDAntigen(cdAntigen);
+            } else if (line.startsWith(TAG_DE_INN)) {
+                String inn = line.substring(TAG_DE_INN.length(), line.length() - 1);
+                proteinName.addINN(inn);
+            } else if (line.startsWith(TAG_DE_RecName)) {
+                DEName recName = new DEName();
+                int fullTagIdx = line.indexOf(TAG_DE_Full);
+                assert fullTagIdx >= 0;
+                String fullName = line.substring(fullTagIdx + TAG_DE_Full.length(), line.length() - 1);
+                recName.setFullName(fullName);
+                if (idx1 < endIdx) {
+                    for (int idx2 = idx1 + 1; idx2 <= endIdx; idx2++) {
+                        line = lines.get(idx2);
+                        if (line.startsWith(TAG_DE_TAB)) {
+                            int shortTagIdx = line.indexOf(TAG_DE_Short);
+                            if (shortTagIdx >= 0) {
+                                String shortName = line.substring(shortTagIdx + TAG_DE_Short.length(), line.length() - 1);
+                                recName.addShortName(shortName);
+                            } else {
+                                int ecTagIdx = line.indexOf(TAG_DE_EC);
+                                if (ecTagIdx >= 0) {
+                                    String ecName = line.substring(ecTagIdx + TAG_DE_EC.length(), line.length() - 1);
+                                    recName.addECName(ecName);
+                                } else {
+                                    throw new IllegalStateException("Unknown DE line under RecName: " + line);
+                                }
+                            }
+                            idx1 = idx2;
+                        } else {
+                            idx1 = idx2 - 1;
+                            break;
+                        }
+                    }
+                }
+                recName.trimToSize();
+                proteinName.setRecName(recName);
+            } else if (line.startsWith(TAG_DE_AltName)) {
+                DEName altName = new DEName();
+                int fullTagIdx = line.indexOf(TAG_DE_Full);
+                if (fullTagIdx < 0) { // 其实不确定 AltName 是不是必然以Full= 开始，只是在人库中没有看到例外
+                    throw new IllegalStateException("Unknown DE line under AltName: " + line);
+                }
+                String fullName = line.substring(fullTagIdx + TAG_DE_Full.length(), line.length() - 1);
+                altName.setFullName(fullName);
+                if (idx1 < endIdx) {
+                    for (int idx2 = idx1 + 1; idx2 < lines.size(); idx2++) {
+                        line = lines.get(idx2);
+                        if (line.startsWith(TAG_DE_TAB)) {
+                            int shortTagIdx = line.indexOf(TAG_DE_Short);
+                            if (shortTagIdx >= 0) {
+                                String shortName = line.substring(shortTagIdx + TAG_DE_Short.length(), line.length() - 1);
+                                altName.addShortName(shortName);
+                            } else {
+                                int ecTagIdx = line.indexOf(TAG_DE_EC);
+                                if (ecTagIdx >= 0) {
+                                    String ecName = line.substring(ecTagIdx + TAG_DE_EC.length(), line.length() - 1);
+                                    altName.addECName(ecName);
+                                } else {
+                                    throw new IllegalStateException("Unknown DE line under AltName: " + line);
+                                }
+                            }
+                            idx1 = idx2;
+                        } else {
+                            idx1 = idx2 - 1;
+                            break;
+                        }
+                    }
+                }
+                altName.trimToSize();
+                proteinName.addAltName(altName);
+            } else if (line.startsWith(TAG_DE_SubName)) {
+                DEName subName = new DEName();
+                int fullTagIdx = line.indexOf(TAG_DE_Full);
+                if (fullTagIdx < 0) {
+                    throw new IllegalStateException("Unknown DE line under AltName: " + line);
+                }
+                String fullName = line.substring(fullTagIdx + TAG_DE_Full.length(), line.length() - 1);
+                subName.setFullName(fullName);
+                if (idx1 < endIdx) {
+                    for (int idx2 = idx1 + 1; idx2 < lines.size(); idx2++) {
+                        line = lines.get(idx2);
+                        if (line.startsWith(TAG_DE_TAB)) {
+                            int ecTagIdx = line.indexOf(TAG_DE_EC);
+                            if (ecTagIdx >= 0) {
+                                String ecName = line.substring(ecTagIdx + TAG_DE_EC.length(), line.length() - 1);
+                                subName.addECName(ecName);
+                            } else {
+                                throw new IllegalStateException("Unknown DE line under AltName: " + line);
+                            }
+                            idx1 = idx2;
+                        } else {
+                            idx1 = idx2 - 1;
+                            break;
+                        }
+                    }
+                }
+                subName.trimToSize();
+                proteinName.addSubName(subName);
+            } else {
+                throw new IllegalStateException("Unknown DE line: " + line);
+            }
+        }
+        proteinName.trimToSize();
+
+        return proteinName;
+    }
+
+    /**
+     * Read GN lines.⭐
+     *
+     * @param header {@link UniProtTxtHeader} to store the parse result
+     * @param lines  GN lines
+     */
+    protected static void readGN(UniProtTxtHeader header, List<String> lines) {
         if (lines.isEmpty())
             return;
 
-        ArrayList<String> genes = new ArrayList<>();
-        for (String line : lines) {
-            if (line.startsWith("Name=")) {
-                int endIdx2 = line.indexOf(";");
-                int endIdx1 = line.indexOf(" {");
+        ArrayList<GeneName> geneNames = new ArrayList<>();
+        int startIdx = 0;
+        StringJoiner joiner = new StringJoiner(" ");
+        String line;
+        for (int i = startIdx; i < lines.size(); i++) {
+            line = lines.get(i);
+            if (line.equals("and")) {
+                String fullGeneLine = joiner.toString();
+                GeneName geneName = readGN(fullGeneLine);
+                geneNames.add(geneName);
 
-                int endIdx;
-                if (endIdx1 > 0 && endIdx2 > 0) {
-                    endIdx = Math.min(endIdx1, endIdx2);
-                } else {
-                    endIdx = Math.max(endIdx1, endIdx2);
-                }
-
-                int startIdx = line.indexOf("=") + 1;
-
-                String geneName = line.substring(startIdx, endIdx);
-                genes.add(geneName);
+                joiner = new StringJoiner(" ");
+            } else {
+                joiner.add(line);
             }
         }
 
-        if (!genes.isEmpty()) {
-            genes.trimToSize();
-            header.setGeneNames(genes);
-            header.setGeneName(genes.getLast());
-        }
+        GeneName geneName = readGN(joiner.toString());
+        geneNames.add(geneName);
 
-//        ArrayList<GeneName> geneNameList = new ArrayList<>(1);
-//        GeneName geneName = new GeneName();
-//        for (int i = 0; i < lines.size(); i++) {
-//            String line = lines.get(i);
-//            if (line.startsWith("and")) { // GN line blocks for the different genes are separated by "and"
-//                geneNameList.add(geneName);
-//                geneName = new GeneName();
-//                continue;
-//            }
-//            if (!line.endsWith(";")) {
-//                StringJoiner joiner = new StringJoiner(" ");
-//                joiner.add(line);
-//
-//                for (int j = i + 1; j < lines.size(); j++) {
-//                    String l = lines.get(j);
-//                    joiner.add(l);
-//                    if (l.endsWith(";")) {
-//                        line = joiner.toString();
-//                        i = j;
-//                        break;
-//                    }
-//                }
-//            }
-//
-//            String[] items = line.split(";");
-//            for (String item : items) {
-//                item = item.stripLeading();
-//
-//                if (item.startsWith("Name=")) {
-//                    geneName.setName(item.substring(5));
-//                } else if (item.startsWith("Synonyms=")) {
-//                    String synnoyms = item.substring(9);
-//                    String[] values = synnoyms.split(",");
-//                    ArrayList<String> synList = new ArrayList<>(values.length);
-//                    for (String value : values) {
-//                        synList.add(value.stripLeading());
-//                    }
-//                    geneName.setSynonyms(synList);
-//                } else if (item.startsWith("OrderedLocusNames=")) {
-//                    item = item.substring(18);
-//                    for (String locus : item.split(",")) {
-//                        geneName.addOrderedLocusName(locus.stripLeading());
-//                    }
-//                } else if (item.startsWith("ORFNames=")) {
-//                    item = item.substring(9);
-//                    for (String orf : item.split(",")) {
-//                        geneName.addORFName(orf.stripLeading());
-//                    }
-//                } else {
-//                    LOG.warn("Unknown line {} in protein {}", item, header.getAccession());
-//                }
-//            }
-//        }
-//        geneNameList.add(geneName);
-//        header.setGeneNames(geneNameList);
+        geneNames.trimToSize();
+        header.setGeneNames(geneNames);
     }
 
-    // ⭐
-    private void readOS(UniProtTxtHeader header, List<String> lines) {
+    protected static final Splitter SEMICOLON_Splitter = Splitter.on(';').trimResults().omitEmptyStrings();
+    protected static final Splitter COMMA_Splitter = Splitter.on(',').trimResults().omitEmptyStrings();
+
+    protected static GeneName readGN(String line) {
+        GeneName geneName = new GeneName();
+
+        for (String nameValue : SEMICOLON_Splitter.split(line)) {
+            if (nameValue.startsWith("Name=")) {
+                String name = nameValue.substring(5);
+                geneName.setName(name);
+            } else if (nameValue.startsWith("Synonyms=")) {
+                String synonyms = nameValue.substring(9);
+                List<String> synonymList = COMMA_Splitter.splitToList(synonyms);
+                ArrayList<String> synonymNames = new ArrayList<>(synonymList);
+                geneName.setSynonyms(synonymNames);
+            } else if (nameValue.startsWith("OrderedLocusNames=")) {
+                String orderedLocusNames = nameValue.substring("OrderedLocusNames=".length());
+                geneName.setOrderedLocusNames(new ArrayList<>(COMMA_Splitter.splitToList(orderedLocusNames)));
+            } else if (nameValue.startsWith("ORFNames=")) {
+                String orfNames = nameValue.substring("ORFNames=".length());
+                geneName.setORFNames(new ArrayList<>(COMMA_Splitter.splitToList(orfNames)));
+            }
+        }
+
+        return geneName;
+    }
+
+    /**
+     * Read Organism Species⭐
+     *
+     * @param header {@link UniProtTxtHeader} to store the result
+     * @param lines  OS lines
+     */
+    protected static void readOS(UniProtTxtHeader header, List<String> lines) {
         StringJoiner joiner = new StringJoiner(" ");
         for (String line : lines) {
             joiner.add(line);
         }
 
         String name = joiner.toString();
-        int idx = name.indexOf("(");
-        if (idx < 0) {
-            idx = name.length();
-        }
-        idx = idx - 1;
-
-        header.setOrganismName(name.substring(0, idx));
+        header.setOrganismName(name.substring(0, name.length() - 1));
     }
 
-    // ⭐
+    /**
+     * Read OG (OrGanelle) line⭐
+     */
     private void readOG(UniProtTxtHeader header, List<String> lines) {
         if (lines.isEmpty())
             return;
@@ -553,59 +616,52 @@ public class UniProtTxtReader implements IterateReader<Seq>, AutoCloseable {
         header.setOrganelle(first.substring(0, first.length() - 1));
     }
 
-//    private List<String> getLines(int index, String tag) {
-//        List<String> lines = new ArrayList<>();
-//        for (int i = index; i < lineList.size(); i++) {
-//            String line = lineList.get(i);
-//            if (line.startsWith(tag)) {
-//                lines.add(line.substring(5));
-//            } else {
-//                break;
-//            }
-//        }
-//        return lines;
-//    }
-
-    // ⭐
-    private void readOC(UniProtTxtHeader header, List<String> lines) {
+    /**
+     * read The OC (Organism Classification) lines.⭐
+     */
+    protected static void readOC(UniProtTxtHeader header, List<String> lines) {
         StringJoiner joiner = new StringJoiner(" ");
         for (String line : lines) {
             joiner.add(line);
         }
         String name = joiner.toString();
-        name = name.substring(0, name.length() - 1);
-        String[] values = name.split("; ");
-        List<String> ocList = new ArrayList<>();
-        Collections.addAll(ocList, values);
-        header.setOrganismClassification(ocList);
+
+        header.setOrganismClassification(new ArrayList<>(SEMICOLON_Splitter.splitToList(name.substring(0, name.length() - 1))));
     }
 
-    private void readOX(UniProtTxtHeader header, List<String> lines) {
+    /**
+     * Read The OX (Organism taxonomy cross-reference) line⭐
+     */
+    protected static void readOX(UniProtTxtHeader header, List<String> lines) {
         assert lines.size() == 1;
         String line = lines.getFirst();
         int idx1 = line.indexOf("=") + 1;
-        int idx2 = line.indexOf("{");
-        if (idx2 < 0) {
-            idx2 = line.length();
-        }
-        idx2 = idx2 - 1;
-
-        String code = line.substring(idx1, idx2);
+        String code = line.substring(idx1, line.length() - 1);
         header.setOrganismIdentifier(code);
     }
 
-    private void readOH(UniProtTxtHeader header, List<String> lines) {
+    /**
+     * The OH (Organism Host) line⭐
+     */
+    protected static void readOH(UniProtTxtHeader header, List<String> lines) {
         if (lines.isEmpty())
             return;
-        ArrayList<String> taxIds = new ArrayList<>();
+        ArrayList<OrganismHost> hosts = new ArrayList<>(lines.size());
         for (String line : lines) {
-            String taxId = line.substring(line.indexOf("=") + 1, line.indexOf(";"));
-            taxIds.add(taxId);
+            int idx1 = line.indexOf("=") + 1;
+            int idx2 = line.indexOf("; ");
+
+            String taxId = line.substring(idx1, idx2);
+            String hostName = line.substring(idx2 + 2, line.length() - 1);
+            OrganismHost host = new OrganismHost(taxId, hostName);
+            hosts.add(host);
         }
-        taxIds.trimToSize();
-        header.setOrganismHostTaxIDs(taxIds);
+        header.setOrganismHostTaxIDs(hosts);
     }
 
+    /**
+     * Read protein existence line.⭐
+     */
     private void readPE(UniProtTxtHeader header, List<String> lines) {
         assert lines.size() == 1;
         String pe = lines.getFirst();

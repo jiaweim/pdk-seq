@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>io.github.jiaweim</groupId>
     <artifactId>pdk-seq</artifactId>
-    <version>0.2.0</version>
+    <version>0.3.0</version>
 
     <name>ProtSeqDB</name>
     <url>https://github.com/jiaweim/pdk-seq</url>

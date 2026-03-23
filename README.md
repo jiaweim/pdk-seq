@@ -29,3 +29,5 @@ while (reader.hasNext()) {
 
 reader.close();
 ```
+
+## Read UniProt dat

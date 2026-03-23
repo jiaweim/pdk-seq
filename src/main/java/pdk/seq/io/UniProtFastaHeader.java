@@ -178,6 +178,11 @@ public class UniProtFastaHeader extends Header {
         return organismName_;
     }
 
+    /**
+     * Set the organism name of the UniProtKB entry
+     *
+     * @param organismName organism name
+     */
     public void setOrganismName(String organismName) {
         this.organismName_ = organismName;
     }
@@ -210,6 +215,14 @@ public class UniProtFastaHeader extends Header {
 
     /**
      * For isoform, protein existence is null.
+     *
+     * <pre>
+     * 1: Evidence at protein level
+     * 2: Evidence at transcript level
+     * 3: Inferred from homology
+     * 4: Predicted
+     * 5: Uncertain
+     * </pre>
      *
      * @return the numerical value describing the evidence for the existence of the protein.
      */

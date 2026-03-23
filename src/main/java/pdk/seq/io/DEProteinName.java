@@ -148,6 +148,15 @@ public class DEProteinName {
         this.subNames_.add(subName);
     }
 
+    /**
+     * Return sub names
+     *
+     * @return list of subnames
+     */
+    public @Nullable List<DEName> getSubNames() {
+        return subNames_;
+    }
+
     public void trimToSize() {
         if (cdAntigens_ != null) {
             cdAntigens_.trimToSize();
@@ -158,6 +167,8 @@ public class DEProteinName {
         if (altNames_ != null) {
             altNames_.trimToSize();
         }
-
+        if (subNames_ != null) {
+            subNames_.trimToSize();
+        }
     }
 }

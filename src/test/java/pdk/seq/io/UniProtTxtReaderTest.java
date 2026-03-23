@@ -6,6 +6,7 @@ import pdk.seq.Seq;
 
 import java.io.IOException;
 import java.io.StringReader;
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -618,9 +619,420 @@ class UniProtTxtReaderTest {
     }
 
     @Test
+    void readDEProteinName1() {
+        String lines = """
+                RecName: Full=Annexin A5;
+                AltName: Full=Anchorin CII;
+                AltName: Full=Annexin V;
+                AltName: Full=Annexin-5;
+                AltName: Full=Calphobindin I;
+                         Short=CPB-I;
+                AltName: Full=Endonexin II;
+                AltName: Full=Lipocortin V;
+                AltName: Full=Placental anticoagulant protein 4;
+                         Short=PP4;
+                AltName: Full=Placental anticoagulant protein I;
+                         Short=PAP-I;
+                AltName: Full=Thromboplastin inhibitor;
+                AltName: Full=Vascular anticoagulant-alpha;
+                         Short=VAC-alpha;
+                """;
+        List<String> lineList = lines.lines().toList();
+
+        DEProteinName name = UniProtTxtReader.readDEProteinName(lineList, 0, 14);
+
+        assertEquals("Annexin A5", name.getRecName().getFullName());
+        assertNull(name.getRecName().getShortNames());
+        assertNull(name.getRecName().getECNames());
+
+        List<DEName> altNames = name.getAltNames();
+        assertEquals(10, altNames.size());
+
+        assertEquals("Anchorin CII", altNames.get(0).getFullName());
+        assertNull(altNames.get(0).getShortNames());
+        assertNull(altNames.get(0).getECNames());
+
+        assertEquals("Annexin V", altNames.get(1).getFullName());
+        assertNull(altNames.get(1).getShortNames());
+        assertNull(altNames.get(1).getECNames());
+
+        assertEquals("Annexin-5", altNames.get(2).getFullName());
+        assertNull(altNames.get(1).getShortNames());
+        assertNull(altNames.get(1).getECNames());
+
+        assertEquals("Calphobindin I", altNames.get(3).getFullName());
+        assertIterableEquals(List.of("CPB-I"), altNames.get(3).getShortNames());
+        assertNull(altNames.get(3).getECNames());
+
+        assertEquals("Endonexin II", altNames.get(4).getFullName());
+        assertNull(altNames.get(4).getShortNames());
+        assertNull(altNames.get(4).getECNames());
+
+        assertEquals("Lipocortin V", altNames.get(5).getFullName());
+        assertNull(altNames.get(5).getShortNames());
+        assertNull(altNames.get(5).getECNames());
+
+        assertEquals("Placental anticoagulant protein 4", altNames.get(6).getFullName());
+        assertIterableEquals(List.of("PP4"), altNames.get(6).getShortNames());
+        assertNull(altNames.get(6).getECNames());
+
+        assertEquals("Placental anticoagulant protein I", altNames.get(7).getFullName());
+        assertIterableEquals(List.of("PAP-I"), altNames.get(7).getShortNames());
+        assertNull(altNames.get(7).getECNames());
+
+        assertEquals("Thromboplastin inhibitor", altNames.get(8).getFullName());
+        assertNull(altNames.get(8).getShortNames());
+        assertNull(altNames.get(8).getECNames());
+
+        assertEquals("Vascular anticoagulant-alpha", altNames.get(9).getFullName());
+        assertIterableEquals(List.of("VAC-alpha"), altNames.get(9).getShortNames());
+        assertNull(altNames.get(9).getECNames());
+    }
+
+    @Test
+    void readDEAltName() {
+        UniProtTxtHeader header = new UniProtTxtHeader();
+        String txt = """
+                RecName: Full=11-beta-hydroxysteroid dehydrogenase 1 {ECO:0000256|ARBA:ARBA00040963};
+                         EC=1.1.1.146 {ECO:0000256|ARBA:ARBA00038971};
+                         EC=1.1.1.201 {ECO:0000256|ARBA:ARBA00039048};
+                AltName: Full=7-oxosteroid reductase {ECO:0000256|ARBA:ARBA00041676};
+                AltName: Full=Corticosteroid 11-beta-dehydrogenase isozyme 1 {ECO:0000256|ARBA:ARBA00041539};
+                """;
+        List<String> lines = txt.lines().toList();
+        UniProtTxtReader.readDE(header, lines);
+
+        DEProteinName name = header.getDEProteinName();
+
+        assertEquals("11-beta-hydroxysteroid dehydrogenase 1 {ECO:0000256|ARBA:ARBA00040963}", name.getRecName().getFullName());
+        assertNull(name.getRecName().getShortNames());
+        assertIterableEquals(List.of("1.1.1.146 {ECO:0000256|ARBA:ARBA00038971}",
+                "1.1.1.201 {ECO:0000256|ARBA:ARBA00039048}"), name.getRecName().getECNames());
+
+        assertEquals(2, name.getAltNames().size());
+        assertEquals("7-oxosteroid reductase {ECO:0000256|ARBA:ARBA00041676}", name.getAltNames().get(0).getFullName());
+        assertNull(name.getAltNames().get(0).getShortNames());
+        assertNull(name.getAltNames().get(0).getECNames());
+
+        assertEquals("Corticosteroid 11-beta-dehydrogenase isozyme 1 {ECO:0000256|ARBA:ARBA00041539}", name.getAltNames().get(1).getFullName());
+        assertNull(name.getAltNames().get(1).getShortNames());
+        assertNull(name.getAltNames().get(1).getECNames());
+
+        assertNull(name.getSubNames());
+    }
+
+    @Test
+    void readDEAllergen() {
+        UniProtTxtHeader header = new UniProtTxtHeader();
+        String txt = """
+                RecName: Full=U4/U6.U5 tri-snRNP-associated protein 1;
+                AltName: Full=SNU66 homolog;
+                         Short=hSnu66;
+                AltName: Full=Squamous cell carcinoma antigen recognized by T-cells 1;
+                         Short=SART-1;
+                         Short=hSART-1;
+                AltName: Full=U4/U6.U5 tri-snRNP-associated 110 kDa protein;
+                AltName: Allergen=Hom s 1;
+                """;
+        List<String> lines = txt.lines().toList();
+        UniProtTxtReader.readDE(header, lines);
+
+        DEProteinName name = header.getDEProteinName();
+        assertEquals("Hom s 1", name.getAllergen());
+    }
+
+    @Test
+    void readDECDantigen() {
+        String txt = """
+                RecName: Full=CD209 antigen-like protein 2;
+                AltName: CD_antigen=CD209;
+                """;
+        UniProtTxtHeader header = new UniProtTxtHeader();
+        List<String> lines = txt.lines().toList();
+        UniProtTxtReader.readDE(header, lines);
+
+        DEProteinName name = header.getDEProteinName();
+        assertEquals(1, name.getCDAntigens().size());
+        assertEquals("CD209", name.getCDAntigens().get(0));
+    }
+
+    @Test
+    void readDEINN() {
+        String txt = """
+                RecName: Full=Alpha-galactosidase A {ECO:0000305};
+                         EC=3.2.1.22 {ECO:0000269|PubMed:26415523, ECO:0000269|PubMed:27211852};
+                AltName: Full=Alpha-D-galactosidase A;
+                AltName: Full=Alpha-D-galactoside galactohydrolase;
+                AltName: Full=Galactosylgalactosylglucosylceramidase GLA {ECO:0000305};
+                AltName: Full=Melibiase;
+                AltName: INN=Agalsidase;
+                Flags: Precursor;
+                """;
+        UniProtTxtHeader header = new UniProtTxtHeader();
+        List<String> lines = txt.lines().toList();
+        UniProtTxtReader.readDE(header, lines);
+
+        DEProteinName deProteinName = header.getDEProteinName();
+        assertEquals(1, deProteinName.getINNs().size());
+        assertEquals("Agalsidase", deProteinName.getINNs().get(0));
+        assertEquals("Precursor", header.getFlags());
+
+        DEName recName = deProteinName.getRecName();
+        assertEquals("Alpha-galactosidase A {ECO:0000305}", recName.getFullName());
+        assertIterableEquals(List.of("3.2.1.22 {ECO:0000269|PubMed:26415523, ECO:0000269|PubMed:27211852}"), recName.getECNames());
+        assertNull(recName.getShortNames());
+        assertEquals(4, deProteinName.getAltNames().size());
+    }
+
+    @Test
+    void readDESubName() {
+        String txt = """
+                SubName: Full=Heat shock protein family A (Hsp70) member 1B {ECO:0000313|Ensembl:ENSP00000402651.3};
+                """;
+        UniProtTxtHeader header = new UniProtTxtHeader();
+        List<String> lines = txt.lines().toList();
+        UniProtTxtReader.readDE(header, lines);
+        DEProteinName name = header.getDEProteinName();
+        assertNull(name.getRecName());
+        List<DEName> subNames = name.getSubNames();
+        assertEquals(1, subNames.size());
+        assertEquals("Heat shock protein family A (Hsp70) member 1B {ECO:0000313|Ensembl:ENSP00000402651.3}", name.getSubNames().get(0).getFullName());
+    }
+
+    @Test
+    void readDEIncludes() {
+        String txt = """
+                RecName: Full=LINE-1 retrotransposable element ORF2 protein;
+                         Short=ORF2p {ECO:0000303|PubMed:38096901, ECO:0000303|PubMed:38096902};
+                Includes:
+                  RecName: Full=Reverse transcriptase;
+                           EC=2.7.7.49 {ECO:0000269|PubMed:38096901, ECO:0000269|PubMed:38096902, ECO:0000269|PubMed:7516468, ECO:0000269|PubMed:9140393};
+                Includes:
+                  RecName: Full=Endonuclease;
+                           EC=3.1.21.- {ECO:0000269|PubMed:17626046, ECO:0000269|PubMed:34554261, ECO:0000269|PubMed:38096901, ECO:0000269|PubMed:38096902, ECO:0000269|PubMed:8945517};
+                """;
+        UniProtTxtHeader header = new UniProtTxtHeader();
+        List<String> lines = txt.lines().toList();
+        UniProtTxtReader.readDE(header, lines);
+
+        DEProteinName name = header.getDEProteinName();
+        assertEquals("LINE-1 retrotransposable element ORF2 protein", name.getRecName().getFullName());
+        assertIterableEquals(List.of("ORF2p {ECO:0000303|PubMed:38096901, ECO:0000303|PubMed:38096902}"), name.getRecName().getShortNames());
+        assertNull(name.getRecName().getECNames());
+
+        List<DEProteinName> includes = header.getIncludes();
+        assertEquals(2, includes.size());
+        assertEquals("Reverse transcriptase", includes.get(0).getRecName().getFullName());
+        assertIterableEquals(List.of("2.7.7.49 {ECO:0000269|PubMed:38096901, ECO:0000269|PubMed:38096902, ECO:0000269|PubMed:7516468, ECO:0000269|PubMed:9140393}"),
+                includes.get(0).getRecName().getECNames());
+        assertNull(includes.get(0).getRecName().getShortNames());
+
+        assertEquals("Endonuclease", includes.get(1).getRecName().getFullName());
+        assertIterableEquals(List.of("3.1.21.- {ECO:0000269|PubMed:17626046, ECO:0000269|PubMed:34554261, ECO:0000269|PubMed:38096901, ECO:0000269|PubMed:38096902, ECO:0000269|PubMed:8945517}"),
+                includes.get(1).getRecName().getECNames());
+        assertNull(includes.get(1).getRecName().getShortNames());
+    }
+
+    @Test
+    void readDEContains() {
+        String txt = """
+                RecName: Full=Agrin;
+                Contains:
+                  RecName: Full=Agrin N-terminal 110 kDa subunit;
+                Contains:
+                  RecName: Full=Agrin C-terminal 110 kDa subunit;
+                Contains:
+                  RecName: Full=Agrin C-terminal 90 kDa fragment;
+                           Short=C90;
+                Contains:
+                  RecName: Full=Agrin C-terminal 22 kDa fragment;
+                           Short=C22;
+                Flags: Precursor;
+                """;
+        UniProtTxtHeader header = new UniProtTxtHeader();
+        List<String> lines = txt.lines().toList();
+        UniProtTxtReader.readDE(header, lines);
+
+        DEProteinName name = header.getDEProteinName();
+        assertEquals("Agrin", name.getRecName().getFullName());
+        assertEquals("Precursor", header.getFlags());
+
+        List<DEProteinName> contains = header.getContains();
+        assertEquals(4, contains.size());
+
+        assertEquals("Agrin N-terminal 110 kDa subunit", contains.get(0).getRecName().getFullName());
+        assertEquals("Agrin C-terminal 110 kDa subunit", contains.get(1).getRecName().getFullName());
+        assertEquals("Agrin C-terminal 90 kDa fragment", contains.get(2).getRecName().getFullName());
+        assertIterableEquals(List.of("C90"), contains.get(2).getRecName().getShortNames());
+        assertEquals("Agrin C-terminal 22 kDa fragment", contains.get(3).getRecName().getFullName());
+        assertIterableEquals(List.of("C22"), contains.get(3).getRecName().getShortNames());
+    }
+
+    @Test
+    void readGN() {
+        String txt = """
+                Name=FMR1 {ECO:0000313|Ensembl:ENSP00000479528.2};
+                """;
+        List<String> lineList = txt.lines().toList();
+        UniProtTxtHeader header = new UniProtTxtHeader();
+        UniProtTxtReader.readGN(header, lineList);
+
+        ArrayList<GeneName> geneNames = header.getGeneNames();
+        assertEquals(1, geneNames.size());
+        assertEquals("FMR1 {ECO:0000313|Ensembl:ENSP00000479528.2}", geneNames.get(0).getName());
+    }
+
+    @Test
+    void readGNSynonyms() {
+        String txt = """
+                Name=SMIM26 {ECO:0000312|HGNC:HGNC:43430};
+                Synonyms=LINC00493 {ECO:0000312|HGNC:HGNC:43430};
+                """;
+        List<String> lineList = txt.lines().toList();
+        UniProtTxtHeader header = new UniProtTxtHeader();
+        UniProtTxtReader.readGN(header, lineList);
+        ArrayList<GeneName> geneNames = header.getGeneNames();
+        assertEquals(1, geneNames.size());
+        assertEquals("SMIM26 {ECO:0000312|HGNC:HGNC:43430}", geneNames.get(0).getName());
+        assertIterableEquals(List.of("LINC00493 {ECO:0000312|HGNC:HGNC:43430}"), geneNames.get(0).getSynonyms());
+    }
+
+    @Test
+    void readGNORF() {
+        String txt = """
+                Name=TNK2 {ECO:0000313|EMBL:EAW50334.1,
+                ECO:0000313|Ensembl:ENSP00000500887.1};
+                ORFNames=hCG_2004203 {ECO:0000313|EMBL:EAW50334.1};
+                """;
+        List<String> lineList = txt.lines().toList();
+        UniProtTxtHeader header = new UniProtTxtHeader();
+        UniProtTxtReader.readGN(header, lineList);
+        ArrayList<GeneName> geneNames = header.getGeneNames();
+        assertEquals(1, geneNames.size());
+        assertEquals("TNK2 {ECO:0000313|EMBL:EAW50334.1, ECO:0000313|Ensembl:ENSP00000500887.1}",
+                geneNames.get(0).getName());
+        assertIterableEquals(List.of("hCG_2004203 {ECO:0000313|EMBL:EAW50334.1}"), geneNames.get(0).getORFNames());
+    }
+
+    @Test
+    void readGNOneLine() {
+        String txt = """
+                Name=CCDC78; Synonyms=C16orf25; ORFNames=JFP10;
+                """;
+        List<String> lineList = txt.lines().toList();
+        UniProtTxtHeader header = new UniProtTxtHeader();
+        UniProtTxtReader.readGN(header, lineList);
+        assertEquals(1, header.getGeneNames().size());
+        GeneName geneName = header.getGeneNames().get(0);
+        assertEquals("CCDC78", geneName.getName());
+        assertIterableEquals(List.of("C16orf25"), geneName.getSynonyms());
+        assertIterableEquals(List.of("JFP10"), geneName.getORFNames());
+    }
+
+    @Test
+    void readGNTwo() {
+        String txt = """
+                Name=DEFB4A; Synonyms=DEFB102, DEFB2, DEFB4;
+                and
+                Name=DEFB4B;
+                """;
+        List<String> lineList = txt.lines().toList();
+        UniProtTxtHeader header = new UniProtTxtHeader();
+        UniProtTxtReader.readGN(header, lineList);
+        ArrayList<GeneName> geneNames = header.getGeneNames();
+        assertEquals(2, geneNames.size());
+        assertEquals("DEFB4A", geneNames.get(0).getName());
+        assertIterableEquals(List.of("DEFB102", "DEFB2", "DEFB4"), geneNames.get(0).getSynonyms());
+        assertNull(geneNames.get(0).getORFNames());
+
+        assertEquals("DEFB4B", geneNames.get(1).getName());
+        assertNull(geneNames.get(1).getORFNames());
+        assertNull(geneNames.get(1).getSynonyms());
+    }
+
+    @Test
+    void readGNOLN() {
+        String txt = """
+                Name=hns; Synonyms=bglY, cur, drdX, hnsA, msyA, osmZ, pilG, topS;
+                OrderedLocusNames=b1237, c1701, z2013, ECs1739;
+                """;
+        List<String> lineList = txt.lines().toList();
+        UniProtTxtHeader header = new UniProtTxtHeader();
+        UniProtTxtReader.readGN(header, lineList);
+
+        ArrayList<GeneName> geneNames = header.getGeneNames();
+        assertEquals(1, geneNames.size());
+        assertEquals("hns", geneNames.get(0).getName());
+        assertIterableEquals(List.of("bglY", "cur", "drdX", "hnsA", "msyA", "osmZ", "pilG", "topS"), geneNames.get(0).getSynonyms());
+        assertIterableEquals(List.of("b1237", "c1701", "z2013", "ECs1739"), geneNames.get(0).getOrderedLocusNames());
+    }
+
+    @Test
+    void readOS() {
+        String txt = """
+                Frog virus 3 (isolate Goorha) (FV-3).
+                """;
+        List<String> lineList = txt.lines().toList();
+        UniProtTxtHeader header = new UniProtTxtHeader();
+        UniProtTxtReader.readOS(header, lineList);
+        assertEquals("Frog virus 3 (isolate Goorha) (FV-3)", header.getOrganismName());
+    }
+
+    @Test
+    void readOSTwoLine() {
+        String txt = """
+                African swine fever virus (isolate Tick/South Africa/Pretoriuskop Pr4/1996)
+                (ASFV).
+                """;
+        List<String> lineList = txt.lines().toList();
+        UniProtTxtHeader header = new UniProtTxtHeader();
+        UniProtTxtReader.readOS(header, lineList);
+        assertEquals("African swine fever virus (isolate Tick/South Africa/Pretoriuskop Pr4/1996) (ASFV)", header.getOrganismName());
+    }
+
+    @Test
+    void readOC() {
+        String txt = """
+                Bacteria; Pseudomonadati; Pseudomonadota; Alphaproteobacteria;
+                Hyphomicrobiales; Rhizobiaceae; Sinorhizobium/Ensifer group; Sinorhizobium.
+                """;
+        List<String> lineList = txt.lines().toList();
+        UniProtTxtHeader header = new UniProtTxtHeader();
+        UniProtTxtReader.readOC(header, lineList);
+        ArrayList<String> ocs = header.getOrganismClassification();
+        assertEquals(8, ocs.size());
+    }
+
+    @Test
+    void readOH() {
+        String txt = """
+                NCBI_TaxID=7163; Aedes vexans (Inland floodwater mosquito) (Culex vexans).
+                NCBI_TaxID=42431; Culex territans.
+                NCBI_TaxID=332058; Culiseta annulata.
+                NCBI_TaxID=310513; Ochlerotatus sollicitans (eastern saltmarsh mosquito).
+                NCBI_TaxID=329105; Ochlerotatus taeniorhynchus (Black salt marsh mosquito) (Aedes taeniorhynchus).
+                NCBI_TaxID=7183; Psorophora ferox.
+                """;
+        List<String> lineList = txt.lines().toList();
+        UniProtTxtHeader header = new UniProtTxtHeader();
+        UniProtTxtReader.readOH(header, lineList);
+        List<OrganismHost> organismHosts = header.getOrganismHosts();
+        assertEquals(6, organismHosts.size());
+        assertEquals(new OrganismHost("7163", "Aedes vexans (Inland floodwater mosquito) (Culex vexans)"), organismHosts.get(0));
+        assertEquals(new OrganismHost("42431", "Culex territans"), organismHosts.get(1));
+        assertEquals(new OrganismHost("332058", "Culiseta annulata"), organismHosts.get(2));
+        assertEquals(new OrganismHost("310513", "Ochlerotatus sollicitans (eastern saltmarsh mosquito)"), organismHosts.get(3));
+        assertEquals(new OrganismHost("329105", "Ochlerotatus taeniorhynchus (Black salt marsh mosquito) (Aedes taeniorhynchus)"), organismHosts.get(4));
+        assertEquals(new OrganismHost("7183", "Psorophora ferox"), organismHosts.get(5));
+
+    }
+
+
+    @Test
     void split() {
         String accs = "A0A087X1C5; Q6XP50;";
         String[] values = accs.split(";");
+
         for (String value : values) {
             System.out.println(value);
         }

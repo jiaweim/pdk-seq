@@ -8,6 +8,8 @@ import java.util.Objects;
 
 /**
  * This class is used to represent RecName, AltName, and SubName in 'DE' section.
+ * <p>
+ * Each DEName consists of three parts: a required fullName, optional shortName and ECName with no count limit.
  *
  * @author Jiawei Mao
  * @version 1.0.0
@@ -116,4 +118,6 @@ public class DEName {
     public int hashCode() {
         return Objects.hash(fullName_, shortNames_, ecNames_);
     }
+
+
 }
